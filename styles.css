@@ -125,3 +125,4 @@ p code, li code, dd code { background: #16203a; padding: 1px 5px; border-radius:
 .roles dd { margin: 2px 0 0 0; color: #cbd5e1; }
 
 footer { color: var(--muted); font-size: 0.85rem; padding-bottom: 32px; }
+footer a { color: var(--accent); }

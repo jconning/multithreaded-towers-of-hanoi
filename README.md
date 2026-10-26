@@ -28,3 +28,7 @@ The page itself explains the algorithm and the air traffic control rules in deta
 ## Running locally
 
 Open `index.html` in a browser. No server needed.
+
+## License
+
+© 2026 Jim Conning. Released under the [MIT License](LICENSE).
