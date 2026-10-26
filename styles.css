@@ -124,5 +124,7 @@ p code, li code, dd code { background: #16203a; padding: 1px 5px; border-radius:
 .roles dt { font-weight: 600; margin-top: 12px; }
 .roles dd { margin: 2px 0 0 0; color: #cbd5e1; }
 
+a, a:visited { color: var(--accent); }
+a:hover { color: var(--text); }
+
 footer { color: var(--muted); font-size: 0.85rem; padding-bottom: 32px; }
-footer a { color: var(--accent); }
