@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Multi-threaded Towers of Hanoi with Air Traffic Control</title>
+  <meta name="description" content="The classic recursive Towers of Hanoi, flown by concurrent threads with air traffic control keeping rings from colliding mid-air.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Multi-threaded Towers of Hanoi <span>with Air Traffic Control</span></h1>
+    <p class="lede">Jim Conning submitted <em>Multi-threaded Towers of Hanoi with Air Traffic Control</em> as an
+      entry into the Java Contest of 1995, which commemorated the launch of Java 1.0. Jim, early in his career,
+      had decided to go all-in to “get on the Java bandwagon”. This vibe-coded implementation celebrates the original entry into
+      the Java Contest and the evolution of software engineering that has occurred across Jim's career. Coded
+      October 26, 2026.</p>
+  </header>
+
+  <main>
+    <section class="sim" aria-label="Simulation">
+      <div class="controls">
+        <label>Rings <select id="rings"></select></label>
+        <label class="speed">Speed <input id="speed" type="range" min="100" max="1500" step="50" value="500"></label>
+        <button id="start" class="primary">Start</button>
+        <button id="reset">Reset</button>
+      </div>
+
+      <canvas id="sky" width="960" height="540" aria-label="Three towers with rings flying between them"></canvas>
+
+      <dl class="stats">
+        <div><dt>Moves</dt><dd id="stat-moves">0</dd></div>
+        <div><dt>Rings in the air</dt><dd id="stat-air">0</dd></div>
+        <div><dt>Peak airborne</dt><dd id="stat-peak">0</dd></div>
+        <div><dt>Flight threads</dt><dd id="stat-threads">0</dd></div>
+        <div><dt>ATC holds</dt><dd id="stat-holds">0</dd></div>
+        <div><dt>Elapsed</dt><dd id="stat-time">0.0 s</dd></div>
+      </dl>
+
+      <div class="atc">
+        <h2>ATC radio</h2>
+        <ul id="atc-log"></ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>The classic problem</h2>
+      <p>The Towers of Hanoi was introduced by the French mathematician Édouard Lucas in 1883. You have three
+        towers and a stack of rings of different sizes, piled largest to smallest on the first tower. The goal
+        is to move the whole stack to another tower, following three rules:</p>
+      <ol>
+        <li>Move only one ring at a time.</li>
+        <li>Only the top ring on a tower can be moved.</li>
+        <li>A larger ring may never be placed on top of a smaller one.</li>
+      </ol>
+      <p>The solution is a textbook example of recursion. To move <var>n</var> rings from A to C, move the top
+        <var>n</var>&nbsp;−&nbsp;1 rings out of the way to B, move the largest ring to C, then move the
+        <var>n</var>&nbsp;−&nbsp;1 rings from B onto it. The minimum is 2<sup><var>n</var></sup>&nbsp;−&nbsp;1 moves,
+        so 10 rings take 1,023 moves. The legend says monks moving 64 golden rings will end the world when they
+        finish. At one move per second, that would take about 585 billion years.</p>
+<pre><code>function solve(n, from, to, via) {
+  if (n === 0) return;
+  solve(n - 1, from, via, to);   // clear the way
+  move(n, from, to);             // move the largest ring
+  solve(n - 1, via, to, from);   // stack the rest back on top
+}</code></pre>
+      <p>This version follows the same recursive move list, in the same order, and every ring lands legally.
+        The difference is that a ring doesn't wait for the previous ring to land before taking off, so flights
+        overlap in the air.</p>
+    </section>
+
+    <section>
+      <h2>A 1995 story</h2>
+      <p>In 1995, Jim Conning wrote and submitted this program as an entry in the Java Contest that
+        commemorated the launch of Java 1.0. It was a Java applet that ran right in the browser, with each
+        ring flying on its own <code>Thread</code> and air traffic control keeping them from colliding.</p>
+      <p>Sadly, it stopped working when Java 1.1 came out, because that release blocked
+        <code>Thread.sleep()</code> for security reasons, and the applet's animation depended on it. The author
+        never updated it to work without <code>Thread.sleep()</code>, and the source code was lost. GitHub
+        hadn't been invented yet in 1995.</p>
+      <p>This page is a re-creation, built with the browser's own threads more than thirty years later. Its code
+        was designed and implemented by Claude Opus 5.5.</p>
+    </section>
+
+    <section class="howto">
+      <h2>How it's built</h2>
+
+      <h3>The stack</h3>
+      <ul>
+        <li><strong>Plain HTML, CSS and JavaScript.</strong> There's no framework, no build step and no
+          dependencies: just <code>index.html</code>, <code>styles.css</code> and <code>hanoi.js</code>. It runs on
+          any static host, or by opening <code>index.html</code> from disk.</li>
+        <li><strong>HTML5 Canvas</strong> draws the towers and rings, redrawn every frame with
+          <code>requestAnimationFrame</code>.</li>
+        <li><strong>Web Workers</strong> provide the threads. Each one is a real operating-system thread with
+          its own event loop and no shared memory. Threads talk to the main thread only by passing messages.</li>
+      </ul>
+
+      <h3>Who does what</h3>
+      <dl class="roles">
+        <dt>Solver (main thread)</dt>
+        <dd>The recursive function above produces the full list of 2<sup>n</sup>&nbsp;−&nbsp;1 moves.</dd>
+        <dt>Dispatcher (main thread)</dt>
+        <dd>Starts a new flight thread for each move, in order, keeping up to six alive at once. A thread can be
+          started before its ring is free; it simply waits until ATC clears it to move.</dd>
+        <dt>Flight threads (one Web Worker per move)</dt>
+        <dd>Each worker flies a single ring along its route: up its tower, across the cruise lane, down onto the
+          destination tower. It only ever flies as far as ATC has cleared it, and hovers when it reaches the end
+          of its clearance. It animates itself with <code>await sleep(16)</code>, a timer-based pause that hands
+          the thread back to its event loop instead of blocking it. That's the modern replacement for the
+          <code>Thread.sleep()</code> call that broke the 1995 applet. The worker reports its position about 60
+          times a second.</dd>
+        <dt>Air Traffic Control (main thread)</dt>
+        <dd>Owns the airspace. Every time any ring reports a new position, ATC recalculates how far each flight
+          may go and radios out extended clearances. Because all workers report to this one place, no locks are
+          needed: the main thread handles one message at a time.</dd>
+        <dt>Renderer (main thread)</dt>
+        <dd>Draws the towers, the cruise lane and the latest reported position of every ring.</dd>
+      </dl>
+
+      <h3>Airspace reservations</h3>
+      <p>Before anything flies, the solver's move list is replayed once so every move knows its exact route:
+        straight up from its spot on the stack, along the cruise lane, and straight down to the exact height it
+        will land at. Each route is three straight legs, so the airspace a ring still needs, from where it is
+        now to where it will land, is just three rectangles the width and height of the ring.</p>
+      <p>The rule ATC enforces is simple: <strong>a ring may never enter airspace still owned by an earlier
+        move</strong>. ATC walks each ring's route forward from its current position and clears it up to the
+        exact point where it would come within a few pixels of an earlier ring's remaining airspace. A ring
+        therefore flies right up to the edge of the airspace ahead of it and stops there, drawn with a pulsing
+        amber outline and reported on the ATC radio. As the ring ahead moves on, its airspace shrinks behind
+        it and the follower's clearance extends, so rings trail each other closely up the tower, along the
+        lane and down onto the stack.</p>
+
+      <h3>Why rings can't collide, cross out of order or deadlock</h3>
+      <ul>
+        <li><strong>No collisions.</strong> A later ring is never cleared into an earlier ring's remaining
+          airspace, and an earlier ring's route never runs through a later ring, because the later ring was
+          never allowed in. Reservations only shrink as rings fly, so a clearance stays safe even if it arrives
+          a few milliseconds late.</li>
+        <li><strong>Correct stacking.</strong> A ring's remaining airspace ends at the exact spot it will land.
+          Any later ring that would take off from beneath it, or land on top of it, is held until it has moved
+          on, so every tower sees exactly the sequence the recursive algorithm produced, even though the
+          flights overlap.</li>
+        <li><strong>No deadlock.</strong> Rings only ever wait for earlier moves, never later ones. The earliest
+          unfinished move has nothing ahead of it, so it can always fly, and everything behind it eventually
+          gets its turn.</li>
+      </ul>
+
+      <h3>Why message passing instead of shared memory</h3>
+      <p>Java-style locks (<code>SharedArrayBuffer</code> with <code>Atomics.wait</code>) only work in the browser
+        when the server sends special cross-origin isolation headers. Most static hosts can't send them, and
+        neither can a file opened from disk. Message passing to a single controller works everywhere. It's also
+        closer to how real air traffic control works: pilots radio the tower and wait for clearance.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>A re-creation of Jim Conning's 1995 Java applet.</p>
+  </footer>
+
+  <script src="hanoi.js"></script>
+</body>
+</html>
